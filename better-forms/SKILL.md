@@ -1,7 +1,7 @@
 ---
 name: better-forms
 description: Complete guide for building accessible, high-UX forms in modern stacks (React/Next.js, Tailwind, Zod). Includes specific patterns for clickable areas, range sliders, output-inspired design, and WCAG compliance.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Better Forms Guide
@@ -221,52 +221,39 @@ export function OTPInput({ length = 6, onComplete }: OTPInputProps) {
 
 **Concept**: Prevent accidental data loss when navigating away from a dirty form.
 
+**Note (React 19)**: Don't confuse `useFormState` from `react-hook-form` with React DOM's `useFormState`, which was renamed to `useActionState` in React 19.
+
+**Warning**: Monkey-patching `router.push` is fragile and may break across Next.js versions. There is no stable API for intercepting App Router navigation. The `beforeunload` approach is the only reliable part. Consider using `onBeforePopState` (Pages Router) or a route change event listener if your framework supports it.
+
 ```tsx
-import { useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useFormState } from "react-hook-form";
 
 export function useUnsavedChangesWarning(isDirty: boolean, message?: string) {
-  const router = useRouter();
   const warningMessage = message ?? "You have unsaved changes. Are you sure you want to leave?";
 
-  // Browser back/refresh
+  // Browser back/refresh — this is the reliable approach
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isDirty) return;
       e.preventDefault();
-      e.returnValue = warningMessage;
-      return warningMessage;
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty, warningMessage]);
+  }, [isDirty]);
 
-  // Next.js App Router navigation
-  useEffect(() => {
-    const originalPush = router.push;
-    
-    router.push = (...args) => {
-      if (isDirty && !window.confirm(warningMessage)) {
-        return Promise.resolve(false);
-      }
-      return originalPush.apply(router, args);
-    };
-
-    return () => {
-      router.push = originalPush;
-    };
-  }, [isDirty, router, warningMessage]);
+  // For in-app navigation, consider a confirmation modal triggered
+  // from your navigation components rather than monkey-patching the router.
 }
 
 // Usage with React Hook Form
 function EditProfileForm() {
   const form = useForm<ProfileData>();
   const { isDirty } = useFormState({ control: form.control });
-  
+
   useUnsavedChangesWarning(isDirty);
-  
+
   return <form>...</form>;
 }
 ```
@@ -276,26 +263,25 @@ function EditProfileForm() {
 **Concept**: Break complex forms into digestible steps with proper state persistence and focus management.
 
 ```tsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 // Persist state to URL for refresh resilience
+// Uses lazy state init to read from URL on first render (SSR-safe)
 function useStepFromURL() {
-  const [step, setStep] = useState(1);
-  
-  useEffect(() => {
+  const [step, setStep] = useState(() => {
+    if (typeof window === "undefined") return 1;
     const params = new URLSearchParams(window.location.search);
-    const urlStep = parseInt(params.get("step") ?? "1", 10);
-    setStep(urlStep);
-  }, []);
+    return parseInt(params.get("step") ?? "1", 10);
+  });
 
-  const goToStep = (newStep: number) => {
+  const goToStep = useCallback((newStep: number) => {
     setStep(newStep);
     const url = new URL(window.location.href);
     url.searchParams.set("step", String(newStep));
     window.history.pushState({}, "", url);
-  };
+  }, []);
 
   return { step, goToStep };
 }
@@ -354,7 +340,7 @@ export function WizardForm() {
       localStorage.setItem("wizard-draft", JSON.stringify(data));
     });
     return () => subscription.unsubscribe();
-  }, [form.watch]);
+  }, [form]);
 
   const handleNext = async () => {
     const isValid = await form.trigger();
@@ -413,7 +399,7 @@ export function WizardForm() {
 **Concept**: Map API validation errors back to specific form fields.
 
 ```tsx
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 
 interface APIError {
   field: string;
@@ -425,38 +411,40 @@ interface APIResponse {
   errors?: APIError[];
 }
 
-async function onSubmit(data: FormData) {
-  const response = await fetch("/api/register", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-
-  const result: APIResponse = await response.json();
-
-  if (!result.success && result.errors) {
-    // Map server errors to form fields
-    result.errors.forEach((error) => {
-      form.setError(error.field as keyof FormData, {
-        type: "server",
-        message: error.message,
-      });
+// Usage: pass form instance and call inside component
+function useServerErrorHandler<T extends Record<string, unknown>>(form: UseFormReturn<T>) {
+  return async (data: T) => {
+    const response = await fetch("/api/register", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
 
-    // Focus the first errored field
-    const firstErrorField = result.errors[0]?.field;
-    if (firstErrorField) {
-      form.setFocus(firstErrorField as keyof FormData);
-    }
-    return;
-  }
+    const result: APIResponse = await response.json();
 
-  // Success handling
+    if (!result.success && result.errors) {
+      // Map server errors to form fields
+      result.errors.forEach((error) => {
+        form.setError(error.field as keyof T & string, {
+          type: "server",
+          message: error.message,
+        });
+      });
+
+      // Focus the first errored field
+      const firstErrorField = result.errors[0]?.field;
+      if (firstErrorField) {
+        form.setFocus(firstErrorField as keyof T & string);
+      }
+      return;
+    }
+
+    // Success handling
+  };
 }
 
 // For nested errors (e.g., "address.city")
 function mapNestedError(form: UseFormReturn, path: string, message: string) {
-  const keys = path.split(".");
-  form.setError(keys.join(".") as any, { type: "server", message });
+  form.setError(path as any, { type: "server", message });
 }
 ```
 
@@ -465,66 +453,84 @@ function mapNestedError(form: UseFormReturn, path: string, message: string) {
 **Concept**: Validate expensive fields (username availability) without API overload.
 
 ```tsx
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import debounce from "lodash.debounce";
 
 // Custom hook for async field validation
+// Uses ref for validateFn to keep debounce stable and avoid timer resets.
+// Cancels in-flight debounced calls on unmount to prevent memory leaks.
 function useAsyncValidation<T>(
   validateFn: (value: T) => Promise<string | null>,
   delay = 500
 ) {
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const validateFnRef = useRef(validateFn);
+  validateFnRef.current = validateFn;
 
-  const debouncedValidate = useCallback(
-    debounce(async (value: T) => {
-      setIsValidating(true);
-      try {
-        const result = await validateFn(value);
-        setError(result);
-      } finally {
-        setIsValidating(false);
-      }
-    }, delay),
-    [validateFn, delay]
+  const debouncedValidate = useMemo(
+    () =>
+      debounce(async (value: T) => {
+        setIsValidating(true);
+        try {
+          const result = await validateFnRef.current(value);
+          setError(result);
+        } finally {
+          setIsValidating(false);
+        }
+      }, delay),
+    [delay]
   );
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => () => debouncedValidate.cancel(), [debouncedValidate]);
 
   return { validate: debouncedValidate, isValidating, error };
 }
 
 // Usage with React Hook Form
+// Validation runs in the onChange handler (not via effects) to avoid
+// race conditions and unnecessary re-renders.
 function UsernameField() {
-  const { register, watch, setError, clearErrors } = useFormContext();
-  const username = watch("username");
+  const { register, setError, clearErrors } = useFormContext();
+  const [isChecking, setIsChecking] = useState(false);
 
   const checkUsername = async (value: string): Promise<string | null> => {
     if (!value || value.length < 3) return null;
-    
-    const response = await fetch(`/api/check-username?username=${value}`);
+
+    const response = await fetch(
+      `/api/check-username?username=${encodeURIComponent(value)}`
+    );
     const { available } = await response.json();
     return available ? null : "This username is already taken";
   };
 
-  const { validate, isValidating, error } = useAsyncValidation(checkUsername);
+  const { validate, isValidating } = useAsyncValidation(checkUsername);
 
-  useEffect(() => {
-    if (username) {
-      validate(username);
-    }
-  }, [username, validate]);
+  // Derive combined checking state
+  const showChecking = isChecking || isValidating;
 
-  useEffect(() => {
-    if (error) {
-      setError("username", { type: "async", message: error });
-    } else {
-      clearErrors("username");
-    }
-  }, [error, setError, clearErrors]);
+  const { onChange: rhfOnChange, ...rest } = register("username", {
+    onChange: (e) => {
+      const value = e.target.value;
+      if (value && value.length >= 3) {
+        setIsChecking(true);
+        validate(value);
+      } else {
+        clearErrors("username");
+      }
+    },
+    // Also validate via RHF's built-in async validate for submit-time
+    validate: async (value) => {
+      const result = await checkUsername(value);
+      return result ?? true;
+    },
+  });
 
   return (
     <div>
-      <input {...register("username")} />
-      {isValidating && <span className="text-muted-foreground">Checking...</span>}
+      <input onChange={rhfOnChange} {...rest} />
+      {showChecking && <span className="text-muted-foreground">Checking...</span>}
     </div>
   );
 }
@@ -591,7 +597,7 @@ function ProfileForm() {
 **Concept**: Drag-and-drop zones are often inaccessible. Ensure keyboard and screen reader support.
 
 ```tsx
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useId, useState, useRef } from "react";
 
 interface FileUploadProps {
   accept?: string;
@@ -606,9 +612,10 @@ export function AccessibleFileUpload({ accept, maxSize, onUpload }: FileUploadPr
   const dropzoneId = useId();
   const errorId = `${dropzoneId}-error`;
 
-  const validateFiles = (files: FileList | null): File[] => {
-    if (!files?.length) return [];
-    
+  const handleFiles = useCallback((files: FileList | null) => {
+    setError(null);
+    if (!files?.length) return;
+
     const validFiles: File[] = [];
     Array.from(files).forEach((file) => {
       if (maxSize && file.size > maxSize) {
@@ -617,13 +624,7 @@ export function AccessibleFileUpload({ accept, maxSize, onUpload }: FileUploadPr
       }
       validFiles.push(file);
     });
-    
-    return validFiles;
-  };
 
-  const handleFiles = useCallback((files: FileList | null) => {
-    setError(null);
-    const validFiles = validateFiles(files);
     if (validFiles.length) {
       onUpload(validFiles);
     }
@@ -889,11 +890,15 @@ function BirthdatePicker({ value, onChange }: DatePickerProps) {
 ```tsx
 // Hook to detect preference
 function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  // Lazy init: read actual value on first render to avoid animation flash
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false
+  );
 
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(query.matches);
 
     const handler = (event: MediaQueryListEvent) => {
       setPrefersReducedMotion(event.matches);
@@ -1313,7 +1318,9 @@ import { useId, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// React 19: ref is a regular prop, no forwardRef needed
 interface SmartInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  ref?: React.Ref<HTMLInputElement>;
   label: string;
   error?: string;
   description?: string;
@@ -1322,6 +1329,7 @@ interface SmartInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const SmartInput = ({
+  ref,
   label,
   error,
   description,
@@ -1357,6 +1365,7 @@ export const SmartInput = ({
 
       <div className="relative">
         <input
+          ref={ref}
           id={id}
           type={inputType}
           className={cn(
@@ -1366,7 +1375,9 @@ export const SmartInput = ({
           )}
           aria-invalid={!!error}
           aria-describedby={
-            cn(description && descriptionId, error && errorId) || undefined
+            [description && descriptionId, error && errorId]
+              .filter(Boolean)
+              .join(" ") || undefined
           }
           {...props}
         />
