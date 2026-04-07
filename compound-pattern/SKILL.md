@@ -9,7 +9,7 @@ description: >
   Context API for component composition, React.Children, or cloneElement. Trigger even if
   the user just describes a component with sub-parts that need to communicate (e.g. "tabs
   with active state", "dropdown with a trigger and list", "table with rows and cells").
-***
+---
 
 # Compound Component Pattern
 
