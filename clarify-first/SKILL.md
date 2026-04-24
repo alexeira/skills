@@ -60,22 +60,35 @@ Ask the user to pick the **minimum deliverable**:
 - What's explicitly **out of scope** for this cycle?
 - What can be deferred to a follow-up?
 
-Bias toward the smallest scope that still ships value. If the user asks for four things, propose shipping one first and confirm.
+**Hard rule — scope pushback.** If the user picks more than 2 items in the scope multi-select, OR picks the "full / everything" option, OR picks the most complex item while Round 2 said `First time` — you MUST offer a narrower first cut before accepting. This is not optional even if the user seems eager.
+
+Script (mirror the user's language):
+
+> *"You picked [N items] including [most complex one]. Given [first time / short timeline / context from Round 2], I'd suggest shipping only [smallest item] first and adding the rest in follow-up cycles. Keep full scope, or narrow down?"*
+>
+> Options: `Narrow scope (recommended)` / `Keep full scope — I know the tradeoff`
+
+Only accept the full scope if the user explicitly overrides. Record the override in the plan.
 
 ### Round 4 — Collaboration mode
 
 Goal: make the user choose how to work, not default to "agent does everything."
 
-Present three modes with `AskUserQuestion`:
+Present three modes with `AskUserQuestion`, **using the `preview` field on each option** to show a concrete one-turn interaction snippet. Abstract labels ("Orchestrate", "Accelerate") are ambiguous; the preview anchors the user's expectation in a concrete example. This is a single-select question — `preview` is supported.
 
 - **Orchestrate** — user drives, agent executes specific narrow steps on request. Best when the user wants to learn or retain control.
+  - Preview example: `User: "add GET /users handler" → Agent: writes just that handler, stops, waits for next instruction.`
 - **Accelerate** — agent implements end-to-end, user reviews the diff and asks questions. Best when the user knows the domain and wants velocity.
-- **Research first** — pause implementation, produce a 5–10 min reading brief (key concepts, library choices, caveats) before touching code. Best when the user admitted "first time" in Round 2.
+  - Preview example: `User: "full CRUD for users" → Agent: writes handlers, router, tests, one commit. User reviews diff.`
+- **Research first** — pause implementation, deliver a 5–10 min reading brief (key concepts, library choices, caveats) before touching code. Best when the user admitted "first time" in Round 2.
+  - Preview example: `Agent: 1-page brief — core concepts, recommended library (w/ reason), first step to try. No code yet.`
 
 Default recommendation depends on Round 2's answer:
 - `First time` or `Not sure` → **Research first**.
 - `Some exposure` → **Orchestrate**.
 - `Yes, comfortable` → **Accelerate**.
+
+**Research first is a deliverable, not a dialogue.** When that mode is chosen, produce the brief in one message and stop. Do NOT end with questions like *"Did that make sense?"*, *"Want more detail on X?"*, or *"Should we proceed?"* — those reopen interrogation. Let the user drive what comes after the brief.
 
 ### Output — Execution plan
 
@@ -84,8 +97,8 @@ After the rounds, produce a short plan the user can approve:
 ```
 Task: [one-line restatement]
 Mode: [Orchestrate | Accelerate | Research first]
-Success = [verifiable criterion]
-Out of scope: [what's deferred]
+Success = [verifiable criterion from Round 3]
+Out of scope: [ONLY items the user explicitly deferred in Round 3 — not agent assumptions]
 
 Steps:
 1. [action] → verify: [check]
@@ -93,7 +106,9 @@ Steps:
 3. [action] → verify: [check]
 ```
 
-Keep it under 15 lines. If it needs more, the scope is too big — loop back to Round 3.
+**About `Out of scope`:** list only what the user explicitly chose to defer in Round 3 or the scope-pushback override. If the user didn't defer anything, write `Out of scope: —`. Do not invent deferred items (caching, tests, "later polish") to look thorough — it fabricates consensus that wasn't given.
+
+Keep the plan under 15 lines. If it needs more, the scope is too big — loop back to Round 3.
 
 ## Non-negotiable Rules
 
@@ -103,6 +118,10 @@ Keep it under 15 lines. If it needs more, the scope is too big — loop back to 
 - **Exit clean on bypass signals.** If the user says `"just do it"`, `"hazlo"`, `"just implement"`, `"confío en ti"`, `"stop asking"`, or equivalent — stop the skill, summarize your current assumptions in one paragraph, and proceed.
 - **Never silently pick** between approaches when more than one is reasonable. Name them, show tradeoffs, ask.
 - **Declare unknowns.** If you don't know something, say so before asking the user. Don't bluff.
+- **Push back on full scope.** If the user selects everything or the largest option, offer a narrower cut per Round 3's hard rule. The user can override, but you must ask.
+- **Out-of-scope comes from the user, not you.** Only list items the user explicitly deferred. Write `—` if they didn't defer anything.
+- **Research first ends with the brief.** No "did that help?" or "should we continue?" tails — they restart interrogation.
+- **Use `preview` on `AskUserQuestion`** when option labels are abstract (modes, architectural choices). Single-select only.
 
 ## When NOT to Trigger
 
@@ -132,6 +151,34 @@ This skill should stay quiet for:
 - Q5: *"¿Cómo prefieres que trabajemos?"* → `Orquestar` / `Acelerar` / `Investigar primero` (default basado en Q3).
 
 **Final plan** (5 lines): tarea, modo, criterio de éxito, fuera de alcance, 3 pasos verificables.
+
+## Enforcement patterns
+
+Concrete `if X → do Y, never Z` rules. When the skill misbehaves, it's almost always one of these. Run through this list before finalizing the plan.
+
+**If the user selects all scope items (or the "full" option)** →
+Do: run the Round 3 pushback script. Wait for a confirm/override answer.
+Never: silently accept full scope just because the user clicked it.
+
+**If the user didn't explicitly defer anything in Round 3** →
+Do: write `Out of scope: —` in the final plan.
+Never: invent deferred items (caching, tests, polish, i18n) to look thorough. That fabricates a consensus the user didn't give.
+
+**If "Research first" mode was chosen** →
+Do: deliver the brief in one message and stop.
+Never: end the brief with *"Did that help?"*, *"Want more on X?"*, or *"Shall we proceed to code?"* — that reopens interrogation and turns a deliverable into a dialogue.
+
+**If the user's initial message already contains scope + criteria + experience** →
+Do: skip to Round 4, or straight to the plan.
+Never: run all 4 rounds "for completeness."
+
+**If the user says "just do it" / "hazlo" mid-workflow** →
+Do: one-paragraph assumption summary, then execute.
+Never: ask one more question.
+
+**If you're unsure between two approaches** →
+Do: name both, list tradeoffs, ask.
+Never: pick silently and hope it's right.
 
 ## Troubleshooting
 
