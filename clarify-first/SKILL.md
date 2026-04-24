@@ -1,6 +1,13 @@
 ---
 name: clarify-first
 description: Interrogate the user with concrete multiple-choice questions before executing non-trivial tasks. Use when the user says "tengo que hacer X", "necesito implementar Y", "ayúdame a construir Z", "I need to build X", "how should I approach Y", or describes a task without clear scope, success criteria, or chosen approach. Forces clarifying questions about scope, success criteria, user's prior knowledge, and tradeoffs BEFORE any code is written. Prevents over-delegation (handing a half-understood task to the LLM) and analysis paralysis. User may invoke and respond in Spanish or English — match their language. Do NOT use for trivial edits, typo fixes, single-line changes, or when the user explicitly says "just do it" / "hazlo".
+license: Apache-2.0
+metadata:
+  author: alexeira
+  version: 0.2.0
+  repository: https://github.com/alexeira/skills
+  category: workflow
+  tags: [task-scoping, planning, clarification, interrogation]
 ---
 
 # clarify-first
