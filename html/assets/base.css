@@ -1,0 +1,291 @@
+/* base.css — HTML artifact template
+ * Inline this entire file into a <style> tag. Never invent your own CSS.
+ * Add component-specific overrides after this block. */
+
+:root {
+  /* color palette */
+  --ivory:  #FAF9F5;
+  --paper:  #FFFFFF;
+  --slate:  #141413;
+  --clay:   #D97757;
+  --clay-d: #B85C3E;
+  --oat:    #E3DACC;
+  --olive:  #788C5D;
+  --g100:   #F0EEE6;
+  --g200:   #E6E3DA;
+  --g300:   #D1CFC5;
+  --g500:   #87867F;
+  --g700:   #3D3D3A;
+
+  /* typography */
+  --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+  --sans:  system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono:  ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+}
+
+/* ── reset ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--ivory);
+  color: var(--slate);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── layout ─────────────────────────────── */
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 32px 80px;
+}
+@media (max-width: 640px) { .wrap { padding: 0 16px 60px; } }
+
+/* ── headings ───────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--serif);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--slate);
+  margin: 0 0 0.5em;
+}
+h1 { font-size: clamp(32px, 5vw, 52px); margin-top: 48px; }
+h2 { font-size: clamp(22px, 3vw, 28px); margin-top: 40px; }
+h3 { font-size: 19px; margin-top: 32px; }
+h4 { font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--g500); margin-top: 28px; }
+h1 em, h2 em { font-style: italic; color: var(--clay); }
+
+p { margin: 0 0 1em; color: var(--g700); }
+a { color: var(--clay); text-decoration-color: var(--oat); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--clay); }
+
+/* ── header / masthead ──────────────────── */
+header.masthead {
+  padding: 64px 0 40px;
+  border-bottom: 1.5px solid var(--g300);
+  margin-bottom: 8px;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--g500);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow::before {
+  content: "";
+  width: 20px;
+  height: 1.5px;
+  background: var(--clay);
+}
+
+/* ── section ────────────────────────────── */
+section {
+  margin-top: 56px;
+  scroll-margin-top: 24px;
+}
+.sec-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin-bottom: 6px;
+}
+
+/* ── tables ─────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 1.5em 0;
+}
+th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--g100);
+  border-bottom: 2px solid var(--g300);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--g500);
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--g200);
+  color: var(--g700);
+  vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--g100); }
+
+/* ── code ───────────────────────────────── */
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--g100);
+  color: var(--clay-d);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+pre {
+  background: var(--slate);
+  color: var(--g200);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+  padding: 20px 24px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 1.5em 0;
+}
+pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── cards ──────────────────────────────── */
+.card {
+  background: var(--paper);
+  border: 1.5px solid var(--g300);
+  border-radius: 12px;
+  padding: 22px 24px;
+  transition: box-shadow 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.card:hover {
+  border-color: var(--slate);
+  box-shadow: 0 8px 24px rgba(20,20,19,.09);
+  transform: translateY(-2px);
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--slate);
+}
+.card-body { font-size: 14px; color: var(--g700); }
+
+/* ── grid ───────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+/* ── badges ─────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1.5px solid var(--g300);
+  color: var(--g700);
+  background: var(--paper);
+}
+.badge.red    { background: #FEE2E2; border-color: #FECACA; color: #991B1B; }
+.badge.yellow { background: #FEF9C3; border-color: #FEF08A; color: #854D0E; }
+.badge.green  { background: #DCFCE7; border-color: #BBF7D0; color: #166534; }
+.badge.clay   { background: var(--oat); border-color: var(--clay); color: var(--clay-d); }
+
+/* ── callouts ───────────────────────────── */
+.callout {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  margin: 1.5em 0;
+  font-size: 14px;
+}
+.callout.info    { background: #EFF6FF; border-left: 3px solid #3B82F6; color: #1E3A5F; }
+.callout.warn    { background: #FFFBEB; border-left: 3px solid var(--clay); color: #78350F; }
+.callout.success { background: #F0FDF4; border-left: 3px solid var(--olive); color: #14532D; }
+.callout.error   { background: #FEF2F2; border-left: 3px solid #EF4444; color: #7F1D1D; }
+.callout-icon { font-size: 16px; flex-shrink: 0; }
+
+/* ── diff / annotated code ──────────────── */
+.diff-add { background: #DCFCE7; color: #166534; }
+.diff-del { background: #FEE2E2; color: #991B1B; text-decoration: line-through; }
+.annotation {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--g500);
+  border-left: 2px solid var(--g300);
+  padding-left: 10px;
+  margin: 4px 0 4px 24px;
+}
+
+/* ── tabs ───────────────────────────────── */
+.tabs { border-bottom: 1.5px solid var(--g300); display: flex; gap: 0; }
+.tab-btn {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  color: var(--g500);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  transition: color 120ms, border-color 120ms;
+}
+.tab-btn:hover { color: var(--slate); }
+.tab-btn.active { color: var(--slate); border-bottom-color: var(--clay); font-weight: 500; }
+.tab-panel { display: none; padding: 24px 0; }
+.tab-panel.active { display: block; }
+
+/* ── copy button ────────────────────────── */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 16px;
+  background: var(--slate);
+  color: var(--ivory);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 140ms;
+}
+.copy-btn:hover { background: var(--clay); }
+
+/* ── footer ─────────────────────────────── */
+footer {
+  margin-top: 80px;
+  border-top: 1.5px solid var(--g300);
+  padding-top: 28px;
+  font-size: 13px;
+  color: var(--g500);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── utilities ──────────────────────────── */
+.mono   { font-family: var(--mono); }
+.serif  { font-family: var(--serif); }
+.muted  { color: var(--g500); }
+.accent { color: var(--clay); }
+.mt0 { margin-top: 0; }
+.mb0 { margin-bottom: 0; }

@@ -11,3 +11,4 @@ A collection of AI agent skills — reusable knowledge files that teach AI codin
 | [clack](./clack/) | Build and maintain interactive Node.js/Bun CLIs with Clack (`@clack/prompts` and `@clack/core`) |
 | [clarify-first](./clarify-first/) | Interrogate the user with multiple-choice questions before executing non-trivial tasks — forces scope, success criteria, and collaboration mode before any code is written |
 | [compound-pattern](./compound-pattern/) | Design and implement the Compound Component pattern in React |
+| [html](./html/) | Generate self-contained HTML artifacts instead of Markdown for specs, plans, code reviews, prototypes, reports, and custom editing interfaces |
