@@ -1,205 +1,79 @@
 ---
 name: clarify-first
-description: Interrogate the user with concrete multiple-choice questions before executing non-trivial tasks. Use when the user says "tengo que hacer X", "necesito implementar Y", "ayúdame a construir Z", "I need to build X", "how should I approach Y", or describes a task without clear scope, success criteria, or chosen approach. Forces clarifying questions about scope, success criteria, user's prior knowledge, and tradeoffs BEFORE any code is written. Prevents over-delegation (handing a half-understood task to the LLM) and analysis paralysis. User may invoke and respond in Spanish or English — match their language. Do NOT use for trivial edits, typo fixes, single-line changes, or when the user explicitly says "just do it" / "hazlo".
+description: Understand a problem together with the user before the agent solves it, so the user keeps the decisions and knows what is going on. Use when the user brings a problem or a non-trivial task without a clear goal, done check, scope or chosen approach ("tengo un problema con X", "necesito implementar Y", "ayúdame a construir Z", "I need to build X", "how should I approach Y"). Do NOT use for trivial edits, pure knowledge questions, or when the user says "just do it" / "hazlo".
 license: Apache-2.0
 metadata:
   author: alexeira
-  version: 0.2.0
+  version: 0.3.0
   repository: https://github.com/alexeira/skills
   category: workflow
-  tags: [task-scoping, planning, clarification, interrogation]
+  tags: [task-scoping, planning, clarification, decisions]
 ---
 
 # clarify-first
 
-A cognitive brake for the agent. Before writing any code, expose what the user knows, what you assume, what's ambiguous, and what "done" actually means. Orchestrate, don't delegate.
+The user wants AI to solve the problem, not to decide it for them, and wants to understand what is happening on the way. Your job is execution; the user's is judgment. This skill makes both explicit before any code is written.
 
-## Core Principle
+Reply in the user's language.
 
-> Research enough to decide. Implement enough to ship. Learn seriously from what you investigated and shipped.
+## 1. Understand the problem
 
-The user wants AI as an accelerator, not as an excuse to skip understanding. This skill forces the conversation that an unclarified task would otherwise skip.
+Before you ask anything, read what you can: the code, the error, the logs, the docs. Then restate the problem in one or two lines and declare your position:
 
-## Language
+- What you verified, with where you saw it.
+- What you assume.
+- What you don't know and how you would find out.
 
-The user may invoke this skill and answer questions in **Spanish, English, or mixed**. Detect their language from the initial message and **respond in the same language**. Keep your internal reasoning and the question templates in English for consistency, but user-facing text must match the user's language.
+If the restatement is wrong, the user corrects it here, before anything else is built on it. If the problem turns out to be clear and small, say so and do it.
 
-Example invocations to expect:
-- `necesito hacer un timeline con animación en un path de SVG`
-- `I need to add rate limiting to this endpoint`
-- `ayúdame a migrar esto de webpack a vite`
+## 2. Fill in the brief
 
-## Workflow
+A task is ready when it has these parts. Ask only for the ones the user's message and the repository don't answer:
 
-Run 3–4 rounds of focused questions, **maximum**. Each round uses `AskUserQuestion` with 2–4 options and a recommended default. Skip rounds whose answers are already obvious from the user's initial message.
+- **Goal**: what is true when it is done.
+- **Why**: what the user needs it for. It decides the tradeoffs.
+- **Constraints**: what must not change, deadlines, tools.
+- **Out of scope**: only what the user defers. Never invent items to look thorough.
+- **Check**: the command, test or screenshot that proves it is done. A logic change gets a test that fails before and passes after; a UI change gets before and after screenshots; config gets the command that shows the effect.
 
-### Round 1 — Task shape
+If the user wants everything at once and part of it is new to them, offer the smallest first cut that can be checked. They can keep the full scope.
 
-Goal: classify the task so you don't waste the user's time.
+## 3. Surface the decisions
 
-Ask up to two questions:
+List the decisions the task contains: approach, library, data shape, behavior at the edges, what ships. For each one, give the options with their tradeoffs and your recommendation with its reason, then stop. Never pick silently between reasonable options.
 
-1. **Is this new work or iteration on existing code?**
-2. **Has the user already chosen the approach, or are they asking you to help decide?**
+A fact the code or docs can settle is not a decision: settle it yourself and show the evidence.
 
-If the task is trivial (typo, rename, one-liner, config tweak) or the user already has a clear approach AND clear success criteria — **exit the skill** and execute directly. Say so plainly: *"This looks clear enough, I'll just do it."*
+## 4. Choose how to work
 
-### Round 2 — Knowledge exposure
+Ask once, with your recommendation:
 
-Goal: surface what both parties know and don't know. This is the most important round.
+- **Orchestrate**: the user drives and you do one narrow step at a time. For learning or keeping control.
+- **Accelerate**: you implement end to end and the user reviews the diff. For a domain the user knows.
+- **Research first**: a one-page brief (concepts, options, the first step to try) and no code. For something new to the user. Deliver it and stop; no "did that help?".
 
-- Ask the user: **"Have you worked with this before?"** Options: `Yes, comfortable` / `Some exposure` / `First time` / `Not sure`.
-- Then **declare your own position explicitly**:
-  - What you're confident about.
-  - What you're assuming (list the assumptions).
-  - What you don't know or would need to check.
-- If there are 2+ reasonable approaches, present them with tradeoffs. Do **not** silently pick one.
+## Output
 
-Never hide confusion. If something is ambiguous, name it.
-
-### Round 3 — Success criteria
-
-Goal: turn a vague task into something verifiable.
-
-Ask the user to pick the **minimum deliverable**:
-
-- What does "done" look like? Which test passes, which output appears, which screen renders?
-- What's explicitly **out of scope** for this cycle?
-- What can be deferred to a follow-up?
-
-**Hard rule — scope pushback.** If the user picks more than 2 items in the scope multi-select, OR picks the "full / everything" option, OR picks the most complex item while Round 2 said `First time` — you MUST offer a narrower first cut before accepting. This is not optional even if the user seems eager.
-
-Script (mirror the user's language):
-
-> *"You picked [N items] including [most complex one]. Given [first time / short timeline / context from Round 2], I'd suggest shipping only [smallest item] first and adding the rest in follow-up cycles. Keep full scope, or narrow down?"*
->
-> Options: `Narrow scope (recommended)` / `Keep full scope — I know the tradeoff`
-
-Only accept the full scope if the user explicitly overrides. Record the override in the plan.
-
-### Round 4 — Collaboration mode
-
-Goal: make the user choose how to work, not default to "agent does everything."
-
-Present three modes with `AskUserQuestion`, **using the `preview` field on each option** to show a concrete one-turn interaction snippet. Abstract labels ("Orchestrate", "Accelerate") are ambiguous; the preview anchors the user's expectation in a concrete example. This is a single-select question — `preview` is supported.
-
-- **Orchestrate** — user drives, agent executes specific narrow steps on request. Best when the user wants to learn or retain control.
-  - Preview example: `User: "add GET /users handler" → Agent: writes just that handler, stops, waits for next instruction.`
-- **Accelerate** — agent implements end-to-end, user reviews the diff and asks questions. Best when the user knows the domain and wants velocity.
-  - Preview example: `User: "full CRUD for users" → Agent: writes handlers, router, tests, one commit. User reviews diff.`
-- **Research first** — pause implementation, deliver a 5–10 min reading brief (key concepts, library choices, caveats) before touching code. Best when the user admitted "first time" in Round 2.
-  - Preview example: `Agent: 1-page brief — core concepts, recommended library (w/ reason), first step to try. No code yet.`
-
-Default recommendation depends on Round 2's answer:
-- `First time` or `Not sure` → **Research first**.
-- `Some exposure` → **Orchestrate**.
-- `Yes, comfortable` → **Accelerate**.
-
-**Research first is a deliverable, not a dialogue.** When that mode is chosen, produce the brief in one message and stop. Do NOT end with questions like *"Did that make sense?"*, *"Want more detail on X?"*, or *"Should we proceed?"* — those reopen interrogation. Let the user drive what comes after the brief.
-
-### Output — Execution plan
-
-After the rounds, produce a short plan the user can approve:
+A plan of at most 15 lines that the user approves:
 
 ```
-Task: [one-line restatement]
-Mode: [Orchestrate | Accelerate | Research first]
-Success = [verifiable criterion from Round 3]
-Out of scope: [ONLY items the user explicitly deferred in Round 3 — not agent assumptions]
+Problem: <one line>
+Goal: <what is true when done>
+Check: <the command or evidence>
+Out of scope: <what the user deferred, or —>
+Decisions: <each one and what the user chose>
+Mode: <Orchestrate | Accelerate | Research first>
 
 Steps:
-1. [action] → verify: [check]
-2. [action] → verify: [check]
-3. [action] → verify: [check]
+1. <action> → check: <how>
 ```
 
-**About `Out of scope`:** list only what the user explicitly chose to defer in Round 3 or the scope-pushback override. If the user didn't defer anything, write `Out of scope: —`. Do not invent deferred items (caching, tests, "later polish") to look thorough — it fabricates consensus that wasn't given.
+While you execute, stop at any decision that was not in the plan and bring it to the user the same way as in step 3. At the end, report the check as evidence and, in a few lines, what you did and why, so the user can explain it without you.
 
-Keep the plan under 15 lines. If it needs more, the scope is too big — loop back to Round 3.
+## Rules
 
-## Non-negotiable Rules
-
-- **Use `AskUserQuestion`** with 2–4 options and a recommended default. No chains of open-ended questions.
-- **Max 3–4 rounds.** If you're still asking after round 4, you're interrogating, not clarifying. Propose a plan with your best guesses and let the user correct it.
-- **Skip rounds aggressively** when the user's message already contains the answer. A user who says *"I want to add JWT auth to my Express API, I've done it twice before, I just want help wiring it up fast"* has already answered Rounds 1, 2, and 4 — jump straight to Round 3.
-- **Exit clean on bypass signals.** If the user says `"just do it"`, `"hazlo"`, `"just implement"`, `"confío en ti"`, `"stop asking"`, or equivalent — stop the skill, summarize your current assumptions in one paragraph, and proceed.
-- **Never silently pick** between approaches when more than one is reasonable. Name them, show tradeoffs, ask.
-- **Declare unknowns.** If you don't know something, say so before asking the user. Don't bluff.
-- **Push back on full scope.** If the user selects everything or the largest option, offer a narrower cut per Round 3's hard rule. The user can override, but you must ask.
-- **Out-of-scope comes from the user, not you.** Only list items the user explicitly deferred. Write `—` if they didn't defer anything.
-- **Research first ends with the brief.** No "did that help?" or "should we continue?" tails — they restart interrogation.
-- **Use `preview` on `AskUserQuestion`** when option labels are abstract (modes, architectural choices). Single-select only.
-
-## When NOT to Trigger
-
-This skill should stay quiet for:
-
-- Trivial edits, typo fixes, single-line changes, reformatting.
-- Pure knowledge questions (`cómo funciona useEffect`, `what is a monad`). The user wants an explanation, not a task plan.
-- Tasks where the user already provided scope, criteria, and approach in the initial message.
-- Explicit bypass (`just do it`, `hazlo`, etc.) even if the task is complex — respect the user's call.
-
-## Example
-
-**User:** *"Tengo que agregar auth al proyecto"*
-
-**Round 1 (task shape):**
-- Q1: *"¿Es auth desde cero o integrar con algo existente?"* → `Desde cero` / `Integrar con proveedor (Auth0, Clerk, etc.)` / `Extender lo que ya hay`
-- Q2: *"¿Ya tienes elegido el enfoque?"* → `Sí, solo necesito ayuda implementando` / `No, ayúdame a decidir`
-
-**Round 2 (knowledge):**
-- Q3: *"¿Has implementado auth antes en este stack?"* → `Sí, cómodo` / `Algo de experiencia` / `Primera vez`
-- Agent declares: *"Asumo que es una app web con sesiones server-side. No sé si ya tienes users en DB ni qué proveedor de email usas. Si es Next.js App Router, recomendaría Auth.js; si es Express puro, una combinación de Lucia + argon2."*
-
-**Round 3 (scope):**
-- Q4: *"¿Qué flujos mínimos entran en este ciclo?"* → `Solo login/logout` / `+ signup` / `+ password reset` / `Todo lo anterior`
-
-**Round 4 (mode):**
-- Q5: *"¿Cómo prefieres que trabajemos?"* → `Orquestar` / `Acelerar` / `Investigar primero` (default basado en Q3).
-
-**Final plan** (5 lines): tarea, modo, criterio de éxito, fuera de alcance, 3 pasos verificables.
-
-## Enforcement patterns
-
-Concrete `if X → do Y, never Z` rules. When the skill misbehaves, it's almost always one of these. Run through this list before finalizing the plan.
-
-**If the user selects all scope items (or the "full" option)** →
-Do: run the Round 3 pushback script. Wait for a confirm/override answer.
-Never: silently accept full scope just because the user clicked it.
-
-**If the user didn't explicitly defer anything in Round 3** →
-Do: write `Out of scope: —` in the final plan.
-Never: invent deferred items (caching, tests, polish, i18n) to look thorough. That fabricates a consensus the user didn't give.
-
-**If "Research first" mode was chosen** →
-Do: deliver the brief in one message and stop.
-Never: end the brief with *"Did that help?"*, *"Want more on X?"*, or *"Shall we proceed to code?"* — that reopens interrogation and turns a deliverable into a dialogue.
-
-**If the user's initial message already contains scope + criteria + experience** →
-Do: skip to Round 4, or straight to the plan.
-Never: run all 4 rounds "for completeness."
-
-**If the user says "just do it" / "hazlo" mid-workflow** →
-Do: one-paragraph assumption summary, then execute.
-Never: ask one more question.
-
-**If you're unsure between two approaches** →
-Do: name both, list tradeoffs, ask.
-Never: pick silently and hope it's right.
-
-## Troubleshooting
-
-### Skill triggers on knowledge questions
-
-**Symptom:** user asked *"cómo funciona X"* and the skill started interrogating.
-**Fix:** knowledge questions are not tasks. Answer the question; don't plan.
-
-### Skill over-interrogates a clear task
-
-**Symptom:** user gave full context, agent still runs all 4 rounds.
-**Fix:** re-read the initial message before asking. If Rounds 1–3 are already answered, jump to Round 4 or straight to the plan.
-
-### User gets impatient mid-interrogation
-
-**Symptom:** user says *"just do it"* or goes silent.
-**Fix:** stop immediately. State your current assumptions in one paragraph and proceed to execute. The skill served its purpose — it exposed the assumptions even if the user skipped the remaining rounds.
+- Use the harness's question tool (`AskUserQuestion`, `questionnaire`) with 2 to 4 options and a recommended one; without one, ask numbered questions in text. After you ask, wait.
+- At most three rounds of questions. After that, propose the plan with your best guesses and let the user correct it.
+- Skip what the user already answered. A message that has the goal, the check and the approach goes straight to the plan.
+- On "just do it", "hazlo" or "stop asking": state your assumptions in one paragraph and proceed.
+- Don't use it for typos, one-line changes, or questions like "how does X work": answer those directly.
